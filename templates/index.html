@@ -26,11 +26,9 @@
             border-radius: 5px;
             background-color: #f8f9fa;
         }
-        .preview-image {
-            max-width: 100%;
-            max-height: 480px;
-            margin: 0 auto;
-            display: block;
+        .database-list {
+            max-height: 300px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -39,19 +37,16 @@
         <h1 class="text-center mb-4">Face Recognition System</h1>
         
         <div class="row">
-            <!-- Camera/Image Section -->
-            <div class="col-md-8 mx-auto">
+            <!-- Camera Section -->
+            <div class="col-md-8">
                 <div class="card">
                     <div class="card-body">
                         <div class="camera-container">
                             <video id="video" autoplay playsinline></video>
                             <canvas id="canvas"></canvas>
-                            <img id="previewImage" class="preview-image" style="display: none;">
                         </div>
                         <div class="text-center mt-3">
-                            <button id="captureBtn" class="btn btn-primary">Capture from Camera</button>
-                            <button id="uploadBtn" class="btn btn-info">Upload Image</button>
-                            <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                            <button id="captureBtn" class="btn btn-primary">Capture</button>
                             <button id="addFaceBtn" class="btn btn-success" style="display: none;">Add Face</button>
                         </div>
                     </div>
@@ -61,6 +56,20 @@
                 <div id="recognitionResult" class="result-container" style="display: none;">
                     <h4>Recognition Result:</h4>
                     <p id="resultText"></p>
+                </div>
+            </div>
+            
+            <!-- Database Section -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Database</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="database-list" id="databaseList">
+                            <!-- Database entries will be populated here -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -94,13 +103,11 @@
         let capturedImage = null;
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const previewImage = document.getElementById('previewImage');
         const captureBtn = document.getElementById('captureBtn');
-        const uploadBtn = document.getElementById('uploadBtn');
-        const imageInput = document.getElementById('imageInput');
         const addFaceBtn = document.getElementById('addFaceBtn');
         const recognitionResult = document.getElementById('recognitionResult');
         const resultText = document.getElementById('resultText');
+        const databaseList = document.getElementById('databaseList');
         const addFaceModal = new bootstrap.Modal(document.getElementById('addFaceModal'));
         const saveFaceBtn = document.getElementById('saveFaceBtn');
         const nameInput = document.getElementById('nameInput');
@@ -115,36 +122,12 @@
             }
         }
 
-        // Handle image upload
-        uploadBtn.addEventListener('click', () => {
-            imageInput.click();
-        });
-
-        imageInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    capturedImage = e.target.result;
-                    previewImage.src = capturedImage;
-                    previewImage.style.display = 'block';
-                    video.style.display = 'none';
-                    addFaceBtn.style.display = 'inline-block';
-                    recognizeFace();
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // Capture image from camera
+        // Capture image
         captureBtn.addEventListener('click', () => {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
             capturedImage = canvas.toDataURL('image/jpeg');
-            previewImage.src = capturedImage;
-            previewImage.style.display = 'block';
-            video.style.display = 'none';
             addFaceBtn.style.display = 'inline-block';
             recognizeFace();
         });
@@ -177,6 +160,7 @@
                 const data = await response.json();
                 if (data.success) {
                     alert(data.message);
+                    updateDatabaseList();
                     addFaceModal.hide();
                     nameInput.value = '';
                 } else {
@@ -215,8 +199,32 @@
             }
         }
 
+        // Update database list
+        async function updateDatabaseList() {
+            try {
+                const response = await fetch('/get_database');
+                const data = await response.json();
+                
+                databaseList.innerHTML = '';
+                data.names.forEach(name => {
+                    const count = data.counts[name];
+                    const div = document.createElement('div');
+                    div.className = 'd-flex justify-content-between align-items-center mb-2';
+                    div.innerHTML = `
+                        <span>${name}</span>
+                        <span class="badge bg-primary">${count} sample${count > 1 ? 's' : ''}</span>
+                    `;
+                    databaseList.appendChild(div);
+                });
+            } catch (err) {
+                console.error('Error updating database list:', err);
+            }
+        }
+
         // Initialize
         startCamera();
+        updateDatabaseList();
+        setInterval(updateDatabaseList, 5000); // Update database list every 5 seconds
     </script>
 </body>
 </html> 
